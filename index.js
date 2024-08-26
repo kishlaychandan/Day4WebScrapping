@@ -1,47 +1,54 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import fs from "fs";
-import xl from 'excel4node';
+import * as XLSX from "xlsx";
 
 const filePath = './amazon-mobile.txt';
-const excelSheetFilePath = 'amazon-mobile.xlsx';
-
-const wb = new xl.Workbook();
-const ws = wb.addWorksheet('Mobile Data');
-
-const writeExcelData = (arr, row, col) => {
-    arr.forEach(item => {
-        ws.cell(row, col++)
-            .string(item)
-    })
-    wb.write(excelSheetFilePath);
-}
+const excelFilePath = './amazon-mobile-data.xlsx';
 
 async function amazonScrapping() {
     try {
+        // const response = await axios.get('https://www.amazon.in/s?k=mobile');
+        // writeFile(filePath, response.data);
+
         const mobileInformation = [];
         const data = fs.readFileSync(filePath, 'utf8');
-
         const $ = cheerio.load(data);
-        $('.a-price-whole').each((index, tag) => {
-            // console.log(tag);
-            mobileInformation[index] = {};
-            mobileInformation[index].price = $(tag).text();
-            // console.log($(tag).text());
+
+        $('.s-result-item').each((index, element) => {
+            const price = $(element).find('.a-price-whole').text();
+            const name = $(element).find('.a-size-medium.a-color-base.a-text-normal').text();
+            const availability = $(element).find('.a-color-success').text() || 'Out of Stock';
+            const rating = $(element).find('.a-icon-alt').text();
+
+            if (name) {
+                mobileInformation.push({
+                    Name: name.trim(),
+                    Price: price.trim() || 'Price not available',
+                    Availability: availability.trim(),
+                    Rating: rating.trim() || 'Rating not available'
+                });
+            }
         });
-        $('.a-size-medium.a-color-base.a-text-normal').each((index, tag) => {
-            mobileInformation[index].name = $(tag).text();
-            // console.log($(tag).text());
-        });
-        let row = 1;
+
         console.log(mobileInformation);
-        writeExcelData(['Name', 'Price'], 1, 1);
-        mobileInformation.forEach(record => writeExcelData([record.name, record.price], ++row, 1));
+        saveToExcel(mobileInformation);
     } catch (error) {
         console.log(error);
     }
 }
+
 amazonScrapping();
+
+// Function to save data to an Excel file
+function saveToExcel(data) {
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Mobile Information");
+
+    XLSX.writeFile(workbook, excelFilePath);
+    console.log(`Data successfully saved to ${excelFilePath}`);
+}
 
 // Function to write data to a file
 function writeFile(filePath, data) {
@@ -63,35 +70,3 @@ function readFile(filePath) {
         }
     });
 }
-
-// // // writeFile(filePath, data);
-
-// const data = [
-//     {
-//         "name": "Shadab Shaikh",
-//         "email": "shadab@gmail.com",
-//         "mobile": "1234567890"
-//     }
-// ]
-
-// const headingColumnNames = [
-//     "Name",
-//     "Email",
-//     "Mobile",
-// ]
-
-// let headingColumnIndex = 1;
-// headingColumnNames.forEach(heading => {
-//     ws.cell(1, headingColumnIndex++)
-//         .string(heading)
-// });
-
-// let rowIndex = 2;
-// data.forEach(record => {
-//     let columnIndex = 1;
-//     Object.keys(record).forEach(columnName => {
-//         ws.cell(rowIndex, columnIndex++)
-//             .string(record[columnName])
-//     });
-//     rowIndex++;
-// });
